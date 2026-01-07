@@ -1,0 +1,177 @@
+[
+  {
+    "id": "ORD-1767746651851",
+    "createdAt": "2026-01-07T00:44:11.851Z",
+    "tgUserId": 6934930597,
+    "tgUsername": null,
+    "customerName": "Тата",
+    "phone": "Лалал",
+    "method": "pickup",
+    "address": null,
+    "comment": null,
+    "items": [
+      {
+        "productId": "сердар-1767743025267",
+        "title": "Сердар",
+        "price": 1000000,
+        "qty": 1
+      }
+    ],
+    "total": 1000000,
+    "orderStatus": "created",
+    "paymentStatus": "unpaid"
+  },
+  {
+    "id": "ORD-1767746619371",
+    "createdAt": "2026-01-07T00:43:39.371Z",
+    "tgUserId": 6934930597,
+    "tgUsername": null,
+    "customerName": "Маина",
+    "phone": "Лвлвл",
+    "method": "pickup",
+    "address": null,
+    "comment": null,
+    "items": [
+      {
+        "productId": "сердар-1767743025267",
+        "title": "Сердар",
+        "price": 1000000,
+        "qty": 1
+      }
+    ],
+    "total": 1000000,
+    "orderStatus": "created",
+    "paymentStatus": "unpaid"
+  },
+  {
+    "id": "ORD-1767744495898",
+    "createdAt": "2026-01-07T00:08:15.898Z",
+    "tgUserId": 6934930597,
+    "tgUsername": null,
+    "customerName": "Маина",
+    "phone": "9256201406",
+    "method": "pickup",
+    "address": null,
+    "comment": null,
+    "items": [
+      {
+        "productId": "сердар-1767743025267",
+        "title": "Сердар",
+        "price": 1000000,
+        "qty": 1
+      }
+    ],
+    "total": 1000000,
+    "orderStatus": "completed",
+    "paymentStatus": "paid_cash"
+  },
+  {
+    "id": "ORD-1767744186843",
+    "createdAt": "2026-01-07T00:03:06.843Z",
+    "tgUserId": 6934930597,
+    "tgUsername": null,
+    "customerName": "Маина",
+    "phone": "926373837",
+    "method": "pickup",
+    "address": null,
+    "comment": null,
+    "items": [
+      {
+        "productId": "сердар-1767743025267",
+        "title": "Сердар",
+        "price": 1000000,
+        "qty": 1
+      }
+    ],
+    "total": 1000000,
+    "orderStatus": "completed",
+    "paymentStatus": "unpaid"
+  },
+  {
+    "id": "ORD-1767743059252",
+    "createdAt": "2026-01-06T23:44:19.252Z",
+    "tgUserId": 6934930597,
+    "tgUsername": null,
+    "customerName": "Маина",
+    "phone": "838373737",
+    "method": "pickup",
+    "address": null,
+    "comment": null,
+    "items": [
+      {
+        "productId": "сердар-1767743025267",
+        "title": "Сердар",
+        "price": 1000000,
+        "qty": 1
+      }
+    ],
+    "total": 1000000,
+    "orderStatus": "cancelled",
+    "paymentStatus": "unpaid"
+  },
+  {
+    "id": "ORD-1767742808302",
+    "createdAt": "2026-01-06T23:40:08.302Z",
+    "tgUserId": 6934930597,
+    "tgUsername": null,
+    "customerName": "Маина",
+    "phone": "9266661234",
+    "method": "courier",
+    "address": "Миклухо Маклая",
+    "comment": "Супер",
+    "items": [
+      {
+        "productId": "н6н6-1767735506628",
+        "title": "н6н6",
+        "price": 6,
+        "qty": 1
+      }
+    ],
+    "total": 6,
+    "orderStatus": "completed",
+    "paymentStatus": "unpaid"
+  },
+  {
+    "id": "ORD-1767742717880",
+    "createdAt": "2026-01-06T23:38:37.880Z",
+    "tgUserId": 6225806242,
+    "tgUsername": "Project_xks",
+    "customerName": "Маина",
+    "phone": "+79256201407",
+    "method": "pickup",
+    "address": null,
+    "comment": "люблю",
+    "items": [
+      {
+        "productId": "iphone-13-128-black-used",
+        "title": "iPhone 13",
+        "price": 45990,
+        "qty": 1
+      }
+    ],
+    "total": 45990,
+    "orderStatus": "confirmed",
+    "paymentStatus": "unpaid"
+  },
+  {
+    "id": "ORD-1767748127780",
+    "createdAt": "2026-01-07T01:08:47.780Z",
+    "tgUserId": 6934930597,
+    "customerName": "Сапп",
+    "phone": "57654",
+    "method": "pickup",
+    "address": null,
+    "comment": null,
+    "items": [
+      {
+        "productId": "сердар-1767743025267",
+        "title": "Сердар",
+        "price": 1000000,
+        "qty": 1
+      }
+    ],
+    "total": 1000000,
+    "orderStatus": "created",
+    "paymentStatus": "unpaid"
+  }
+]

@@ -1,0 +1,24 @@
+[
+  {
+    "id": "p_280b151afab68c",
+    "title": "Айфон",
+    "brand": "эпл",
+    "condition": "new",
+    "optionGroups": [],
+    "variants": [
+      {
+        "id": "v_p_280b151afab68c_ad52f159fab68d",
+        "selections": {},
+        "pricing": {
+          "mode": "final",
+          "value": 0
+        },
+        "oldPrice": null,
+        "stock": 0,
+        "isActive": true
+      }
+    ],
+    "createdAt": "2026-01-07T19:41:43.437Z",
+    "updatedAt": "2026-01-07T19:41:43.437Z"
+  }
+]

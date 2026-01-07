@@ -1,0 +1,60 @@
+[
+  {
+    "id": "сердар-1767743025267",
+    "title": "Сердар",
+    "brand": "супер",
+    "condition": "new",
+    "price": 1000000,
+    "oldPrice": null,
+    "stock": 6,
+    "images": [],
+    "specs": []
+  },
+  {
+    "id": "артем-про-макс-1767743001278",
+    "title": "Артем про макс",
+    "brand": "Медведев",
+    "condition": "used",
+    "price": 500,
+    "oldPrice": null,
+    "stock": 1,
+    "images": [],
+    "specs": []
+  },
+  {
+    "id": "iphone-13-128-black-used",
+    "title": "iPhone 13",
+    "brand": "Apple",
+    "condition": "used",
+    "price": 45990,
+    "oldPrice": 49990,
+    "images": [
+      "https://via.placeholder.com/600x600.png?text=iPhone+13"
+    ],
+    "specs": [
+      "128GB",
+      "Цвет: черный",
+      "Батарея: 87%",
+      "Комплект: коробка+кабель"
+    ],
+    "stock": 0
+  },
+  {
+    "id": "samsung-s23-256-green-new",
+    "title": "Galaxy S23",
+    "brand": "Samsung",
+    "condition": "new",
+    "price": 69990,
+    "oldPrice": null,
+    "images": [
+      "https://via.placeholder.com/600x600.png?text=Galaxy+S23"
+    ],
+    "specs": [
+      "256GB",
+      "Цвет: зеленый",
+      "Гарантия 12 мес",
+      "Новый, запечатан"
+    ],
+    "stock": 2
+  }
+]

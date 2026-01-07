@@ -1,0 +1,67 @@
+[
+  {
+    "id": "260107-042309-537A",
+    "createdAt": "2026-01-07T01:23:09.030Z",
+    "tgUserId": 6934930597,
+    "customerName": "Пыови",
+    "phone": "2938",
+    "method": "pickup",
+    "address": null,
+    "comment": null,
+    "items": [
+      {
+        "productId": "сердар-1767743025267",
+        "title": "Сердар",
+        "price": 1000000,
+        "qty": 1
+      }
+    ],
+    "total": 1000000,
+    "orderStatus": "created",
+    "paymentStatus": "unpaid"
+  },
+  {
+    "id": "260107-042309-DA30",
+    "createdAt": "2026-01-07T01:23:09.069Z",
+    "tgUserId": 6934930597,
+    "customerName": "Пыови",
+    "phone": "2938",
+    "method": "pickup",
+    "address": null,
+    "comment": null,
+    "items": [
+      {
+        "productId": "сердар-1767743025267",
+        "title": "Сердар",
+        "price": 1000000,
+        "qty": 1
+      }
+    ],
+    "total": 1000000,
+    "orderStatus": "completed",
+    "paymentStatus": "paid_cash",
+    "updatedAt": "2026-01-07T01:24:24.328Z"
+  },
+  {
+    "id": "260107-063611-5D9E",
+    "createdAt": "2026-01-07T03:36:11.314Z",
+    "tgUserId": 6934930597,
+    "customerName": "Маина",
+    "phone": "9256201307",
+    "method": "pickup",
+    "address": null,
+    "comment": null,
+    "items": [
+      {
+        "productId": "сердар-1767743025267",
+        "title": "Сердар",
+        "price": 1000000,
+        "qty": 2
+      }
+    ],
+    "total": 2000000,
+    "orderStatus": "confirmed",
+    "paymentStatus": "paid_cash",
+    "updatedAt": "2026-01-07T04:59:19.898Z"
+  }
+]
