@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { verifyTelegramInitData } from "@/lib/tgVerify";
-import { getProductOptions, saveProductOptions, validateProductOptions, ProductOptions } from "@/lib/productOptionsStore";
+import {
+  getProductOptions,
+  saveProductOptions,
+  validateProductOptions,
+  ProductOptions,
+} from "@/lib/productOptionsStore";
 
 function getAdminIds(): number[] {
   const raw = process.env.ADMIN_TG_IDS || "";
@@ -18,16 +23,20 @@ function deny(msg = "Нет доступа.") {
 
 export async function GET(req: Request) {
   const initData = req.headers.get("x-tg-init-data") || "";
-  const token = process.env.TELEGRAM_BOT_TOKEN || "";
-  const v = verifyTelegramInitData(initData, token);
+  const v = verifyTelegramInitData(initData);
   if (!v.ok) return deny("Неверный initData.");
 
   const adminIds = getAdminIds();
-  if (!adminIds.includes(v.user!.id)) return deny();
+  const uid = v.user?.id;
+  if (!uid || !adminIds.includes(uid)) return deny();
 
   const url = new URL(req.url);
   const productId = url.searchParams.get("productId") || "";
-  if (!productId) return NextResponse.json({ ok: false, error: "productId обязателен" }, { status: 400 });
+  if (!productId)
+    return NextResponse.json(
+      { ok: false, error: "productId обязателен" },
+      { status: 400 }
+    );
 
   const opts = getProductOptions(productId);
   return NextResponse.json({ ok: true, options: opts });
@@ -35,18 +44,26 @@ export async function GET(req: Request) {
 
 export async function PUT(req: Request) {
   const initData = req.headers.get("x-tg-init-data") || "";
-  const token = process.env.TELEGRAM_BOT_TOKEN || "";
-  const v = verifyTelegramInitData(initData, token);
+  const v = verifyTelegramInitData(initData);
   if (!v.ok) return deny("Неверный initData.");
 
   const adminIds = getAdminIds();
-  if (!adminIds.includes(v.user!.id)) return deny();
+  const uid = v.user?.id;
+  if (!uid || !adminIds.includes(uid)) return deny();
 
   const body = (await req.json()) as { options?: ProductOptions };
-  if (!body?.options?.productId) return NextResponse.json({ ok: false, error: "options.productId обязателен" }, { status: 400 });
+  if (!body?.options?.productId)
+    return NextResponse.json(
+      { ok: false, error: "options.productId обязателен" },
+      { status: 400 }
+    );
 
   const errors = validateProductOptions(body.options);
-  if (errors.length) return NextResponse.json({ ok: false, error: errors.join("\n") }, { status: 400 });
+  if (errors.length)
+    return NextResponse.json(
+      { ok: false, error: errors.join("\n") },
+      { status: 400 }
+    );
 
   saveProductOptions(body.options);
   return NextResponse.json({ ok: true });
