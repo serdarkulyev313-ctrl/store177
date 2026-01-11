@@ -222,10 +222,10 @@ export default function ProductOptionsPage() {
     setMsg("");
 
     const r = await fetch("/api/admin/product-options", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", "X-TG-INIT-DATA": initData },
-      body: JSON.stringify({ options: opts }),
-    });
+  method: "PUT",
+  headers: { "Content-Type": "application/json", "X-TG-INIT-DATA": initData },
+  body: JSON.stringify({ productId, options: opts }),
+});
     const j = await r.json();
     if (!j.ok) return setMsg(`Ошибка сохранения:\n${j.error}`);
     setMsg("Сохранено ✅");
