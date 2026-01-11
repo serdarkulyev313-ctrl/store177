@@ -1,10 +1,7 @@
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
-import { NextResponse } from "next/server";
-import { readProducts, viewProductForCatalog } from "@/lib/productsStore";
+import { NextResponse } from 'next/server';
+import { getProducts } from '@/lib/kv';
 
 export async function GET() {
-  const products = readProducts().map(viewProductForCatalog);
-  return NextResponse.json(products, { headers: { "Cache-Control": "no-store" } });
+  const products = await getProducts();
+  return NextResponse.json(products);
 }
