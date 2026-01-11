@@ -1,7 +1,38 @@
 import { NextResponse } from "next/server";
+import { kv } from "@vercel/kv";
+
 import { verifyTelegramInitData } from "@/lib/tgVerify";
-import { readProducts, writeProducts, makeProductId, makeVariantId, Product } from "@/lib/productsStore";
 import { validateOptionGroups, validateVariants } from "@/lib/productValidate";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+type Pricing = { mode: "final" | "from"; value: number };
+
+type Variant = {
+  id: string;
+  selections: Record<string, string>;
+  pricing: Pricing;
+  oldPrice: number | null;
+  stock: number;
+  isActive: boolean;
+};
+
+export type Product = {
+  id: string;
+  title: string;
+  brand: string;
+  condition: "new" | "used";
+  optionGroups: any[];
+  variants: Variant[];
+  createdAt: string;
+  updatedAt: string;
+
+  // чтобы не падало, если где-то доп.поля
+  [key: string]: any;
+};
+
+const PRODUCTS_KEY = "store177:products";
 
 function getAdminIds(): number[] {
   const raw = process.env.ADMIN_TG_IDS || "";
@@ -25,13 +56,38 @@ function requireAdmin(initData: string) {
   return { ok: true as const, userId: v.user.id };
 }
 
+function makeProductId() {
+  // nodejs runtime в Vercel поддерживает crypto.randomUUID()
+  // на всякий: fallback
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const c: any = globalThis.crypto;
+  if (c?.randomUUID) return c.randomUUID();
+  return `p_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function makeVariantId(productId: string) {
+  return `${productId}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+async function readProducts(): Promise<Product[]> {
+  const data = (await kv.get<Product[] | null>(PRODUCTS_KEY)) ?? null;
+  return Array.isArray(data) ? data : [];
+}
+
+async function writeProducts(products: Product[]) {
+  await kv.set(PRODUCTS_KEY, products);
+}
+
 export async function GET(req: Request) {
   const initData = req.headers.get("x-tg-init-data") || "";
   const a = requireAdmin(initData);
   if (!a.ok) return NextResponse.json({ ok: false, error: a.error }, { status: 403 });
 
-  const products = readProducts();
-  return NextResponse.json({ ok: true, products });
+  const products = await readProducts();
+  return NextResponse.json(
+    { ok: true, products },
+    { headers: { "Cache-Control": "no-store" } }
+  );
 }
 
 export async function POST(req: Request) {
@@ -44,9 +100,11 @@ export async function POST(req: Request) {
   const brand = String(body?.brand || "").trim();
   const condition = body?.condition === "used" ? "used" : "new";
 
-  if (!title || !brand) return NextResponse.json({ ok: false, error: "title/brand обязательны" }, { status: 400 });
+  if (!title || !brand) {
+    return NextResponse.json({ ok: false, error: "title/brand обязательны" }, { status: 400 });
+  }
 
-  const products = readProducts();
+  const products = await readProducts();
   const id = makeProductId();
 
   const p: Product = {
@@ -70,7 +128,7 @@ export async function POST(req: Request) {
   };
 
   products.unshift(p);
-  writeProducts(products);
+  await writeProducts(products);
 
   return NextResponse.json({ ok: true, product: p });
 }
@@ -86,7 +144,7 @@ export async function PATCH(req: Request) {
 
   if (!id) return NextResponse.json({ ok: false, error: "id обязателен" }, { status: 400 });
 
-  const products = readProducts();
+  const products = await readProducts();
   const idx = products.findIndex((p) => p.id === id);
   if (idx < 0) return NextResponse.json({ ok: false, error: "product not found" }, { status: 404 });
 
@@ -95,12 +153,15 @@ export async function PATCH(req: Request) {
   const next: Product = {
     ...prev,
     ...patch,
+
     // защита от мусора
     title: patch?.title !== undefined ? String(patch.title).trim() : prev.title,
     brand: patch?.brand !== undefined ? String(patch.brand).trim() : prev.brand,
     condition: patch?.condition === "used" ? "used" : patch?.condition === "new" ? "new" : prev.condition,
+
     optionGroups: Array.isArray(patch?.optionGroups) ? patch.optionGroups : prev.optionGroups,
     variants: Array.isArray(patch?.variants) ? patch.variants : prev.variants,
+
     updatedAt: new Date().toISOString(),
   };
 
@@ -112,7 +173,7 @@ export async function PATCH(req: Request) {
   if (!vv.ok) return NextResponse.json({ ok: false, error: vv.error }, { status: 400 });
 
   products[idx] = next;
-  writeProducts(products);
+  await writeProducts(products);
 
   return NextResponse.json({ ok: true, product: next });
 }
@@ -126,9 +187,9 @@ export async function DELETE(req: Request) {
   const id = String(body?.id || "");
   if (!id) return NextResponse.json({ ok: false, error: "id обязателен" }, { status: 400 });
 
-  const products = readProducts();
+  const products = await readProducts();
   const next = products.filter((p) => p.id !== id);
-  writeProducts(next);
+  await writeProducts(next);
 
   return NextResponse.json({ ok: true });
 }
