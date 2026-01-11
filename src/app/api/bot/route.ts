@@ -44,8 +44,11 @@ export async function POST(req: Request) {
   }
 
   const update = await req.json();
-  await bot.handleUpdate(update);
-  return NextResponse.json({ ok: true });
+await bot.init();
+await bot.handleUpdate(update);
+return NextResponse.json({ ok: true });
+
+
 }
 
 export async function GET() {
