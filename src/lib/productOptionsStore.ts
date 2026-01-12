@@ -1,5 +1,4 @@
-import fs from "fs";
-import path from "path";
+import { kvGetJson, kvSetJson } from "@/lib/kv";
 
 export type OptionInputType = "select" | "radio" | "checkbox" | "text";
 
@@ -29,28 +28,14 @@ export type ProductOptions = {
   updatedAt: string;
 };
 
-type Db = Record<string, ProductOptions>;
+const KV_KEY_PREFIX = "product-options:";
 
-const DB_PATH = path.join(process.cwd(), "data", "productOptions.json");
-
-function readDb(): Db {
-  try {
-    const raw = fs.readFileSync(DB_PATH, "utf-8");
-    const json = JSON.parse(raw || "{}");
-    if (json && typeof json === "object") return json;
-    return {};
-  } catch {
-    return {};
-  }
+function kvKey(productId: string) {
+  return `${KV_KEY_PREFIX}${productId}`;
 }
 
-function writeDb(db: Db) {
-  fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), "utf-8");
-}
-
-export function getProductOptions(productId: string): ProductOptions {
-  const db = readDb();
-  const existing = db[productId];
+export async function getProductOptions(productId: string): Promise<ProductOptions> {
+  const existing = await kvGetJson<ProductOptions | null>(kvKey(productId), null);
   if (existing) return existing;
 
   return {
@@ -61,10 +46,9 @@ export function getProductOptions(productId: string): ProductOptions {
   };
 }
 
-export function saveProductOptions(opts: ProductOptions) {
-  const db = readDb();
-  db[opts.productId] = { ...opts, updatedAt: new Date().toISOString() };
-  writeDb(db);
+export async function saveProductOptions(opts: ProductOptions) {
+  const next = { ...opts, updatedAt: new Date().toISOString() };
+  await kvSetJson<ProductOptions>(kvKey(opts.productId), next);
 }
 
 // ---------- Валидации ----------
