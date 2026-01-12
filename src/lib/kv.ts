@@ -3,6 +3,13 @@ import { kv } from "@vercel/kv";
 export async function kvGetJson<T>(key: string, fallback: T): Promise<T> {
   const value = await kv.get<T>(key);
   if (value === null || value === undefined) return fallback;
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return fallback;
+    }
+  }
   return value;
 }
 
