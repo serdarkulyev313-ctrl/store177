@@ -82,7 +82,8 @@ function signature(groups: OptionGroup[], options: Record<string, string | null>
 export default function ProductOptionsPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
-  const productId = params?.id;
+  const productIdRaw = (params as any)?.id;
+  const productId = typeof productIdRaw === "string" ? productIdRaw : "";
 
   const [initData, setInitData] = useState("");
   const [role, setRole] = useState<"loading" | "admin" | "user">("loading");
@@ -126,27 +127,40 @@ export default function ProductOptionsPage() {
       });
       const oj = await or.json();
       if (!oj.ok) return setMsg(`Ошибка: ${oj.error}`);
-      setOpts(oj.options);
+
+      // подстрахуемся, что productId всегда проставлен
+      const incoming = (oj.options || {}) as ProductOptions;
+      setOpts({
+        productId,
+        groups: incoming.groups || [],
+        variants: incoming.variants || [],
+      });
     })();
   }, [role, initData, productId]);
 
   function ensureOpts(): ProductOptions {
-    return opts || { productId: productId!, groups: [], variants: [] };
+    return opts || { productId: productId || "", groups: [], variants: [] };
   }
 
   function updateGroups(next: OptionGroup[]) {
     const cur = ensureOpts();
-    setOpts({ ...cur, groups: next });
+    setOpts({ ...cur, productId: productId || cur.productId, groups: next });
   }
 
   function updateVariants(next: ProductVariant[]) {
     const cur = ensureOpts();
-    setOpts({ ...cur, variants: next });
+    setOpts({ ...cur, productId: productId || cur.productId, variants: next });
   }
 
   function addGroup() {
     const cur = ensureOpts();
-    const g: OptionGroup = { id: uid("g"), name: "Новая группа", type: "select", required: true, values: ["Значение 1"] };
+    const g: OptionGroup = {
+      id: uid("g"),
+      name: "Новая группа",
+      type: "select",
+      required: true,
+      values: ["Значение 1"],
+    };
     updateGroups([...(cur.groups || []), g]);
   }
 
@@ -165,13 +179,15 @@ export default function ProductOptionsPage() {
     const cur = ensureOpts();
     if (!confirm("Удалить группу опций?")) return;
     const groups = cur.groups.filter((g) => g.id !== id);
+
     // также чистим варианты
     const variants = cur.variants.map((v) => {
       const o = { ...v.options };
       delete o[id];
       return { ...v, options: o };
     });
-    setOpts({ ...cur, groups, variants });
+
+    setOpts({ ...cur, productId: productId || cur.productId, groups, variants });
   }
 
   function generateVariants() {
@@ -218,14 +234,30 @@ export default function ProductOptionsPage() {
   }
 
   async function saveAll() {
-    if (!opts) return;
     setMsg("");
 
+    if (!productId) {
+      setMsg("Ошибка сохранения:\nproductId отсутствует (похоже, страница открыта без корректного /admin/products/[id]).");
+      return;
+    }
+
+    const cur = ensureOpts();
+
+    // ВАЖНО: бэку отдаем productId в корне, а options — отдельно
+    const payload = {
+      productId,
+      options: {
+        groups: cur.groups || [],
+        variants: cur.variants || [],
+      },
+    };
+
     const r = await fetch("/api/admin/product-options", {
-  method: "PUT",
-  headers: { "Content-Type": "application/json", "X-TG-INIT-DATA": initData },
-  body: JSON.stringify({ productId, options: opts }),
-});
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "X-TG-INIT-DATA": initData },
+      body: JSON.stringify(payload),
+    });
+
     const j = await r.json();
     if (!j.ok) return setMsg(`Ошибка сохранения:\n${j.error}`);
     setMsg("Сохранено ✅");
