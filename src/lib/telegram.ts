@@ -1,0 +1,1 @@
+export { verifyTelegramInitData } from "./tgVerify";
