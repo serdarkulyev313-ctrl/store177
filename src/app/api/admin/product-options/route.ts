@@ -1,52 +1,131 @@
-// src/app/api/admin/product-options/route.ts
 import { NextResponse } from "next/server";
-import { verifyTelegramInitData } from "@/lib/tgVerify";
+import { verifyTelegramInitData } from "@/lib/telegram";
 import { kvGetJson, kvSetJson } from "@/lib/kv";
 
-/**
- * ВАЖНО:
- * Админка шлёт x-tg-init-data (initData).
- * Мы проверяем подпись и то, что пользователь есть в ADMIN_TG_IDS.
- */
+type OptionGroup = {
+  id: string;
+  name: string;
+  type: "select" | "radio" | "checkbox" | "text";
+  required?: boolean;
+  values?: string[];
+};
 
-function getAdminIds(): number[] {
-  const raw = process.env.ADMIN_TG_IDS || "";
-  return raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .map((s) => Number(s))
-    .filter((n) => Number.isFinite(n));
-}
+type Variant = {
+  id: string;
+  options: Record<string, string>; // groupId -> selected value
+  priceMode: "fixed" | "delta" | "final";
+  priceValue: number;
+  sku?: string;
+  stock?: number;
+  isActive?: boolean;
+};
 
-function isAdmin(tgUserId: number) {
-  return getAdminIds().includes(tgUserId);
+type ProductOptionsStored = {
+  optionGroups: OptionGroup[];
+  variants: Variant[];
+};
+
+type ProductOptionsPayloadV1 = {
+  productId: string;
+  optionGroups: OptionGroup[];
+  variants: Variant[];
+};
+
+type ProductOptionsPayloadV2 = {
+  productId: string;
+  options: {
+    groups?: OptionGroup[];       // old client
+    optionGroups?: OptionGroup[]; // alternative naming
+    variants?: Variant[];
+  };
+};
+
+function keyFor(productId: string) {
+  return `product-options:${productId}`;
 }
 
 function requireAdmin(initData: string) {
   const v = verifyTelegramInitData(initData);
-  if (!v.ok) return { ok: false as const, error: "initData невалиден" };
-  if (!v.user?.id) return { ok: false as const, error: "user отсутствует" };
-  if (!isAdmin(v.user.id)) return { ok: false as const, error: "нет прав админа" };
-  return { ok: true as const, userId: v.user.id };
+  if (!v.ok) return { ok: false as const, error: v.error };
+
+  const adminIds = String(process.env.ADMIN_IDS || "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+
+  if (adminIds.length === 0) {
+    return { ok: false as const, error: "ADMIN_IDS не настроен" };
+  }
+
+  const userId = String(v.user?.id || "");
+  if (!adminIds.includes(userId)) {
+    return { ok: false as const, error: "Доступ запрещён" };
+  }
+
+  return { ok: true as const, user: v.user };
 }
 
-/**
- * Хранилище:
- * KV key: productOptions:<productId>
- * value: { optionGroups: [...], variants: [...] }
- */
-type ProductOptionsPayload = {
-  productId: string;
-  optionGroups: any[];
-  variants: any[];
-};
-
-function keyFor(productId: string) {
-  return `productOptions:${productId}`;
+function asArray<T>(x: unknown): T[] {
+  return Array.isArray(x) ? (x as T[]) : [];
 }
 
-// Получить сохранённые опции/варианты товара
+function normalizeBody(body: any): { productId: string; optionGroups: OptionGroup[]; variants: Variant[] } {
+  const productId = String(body?.productId || "").trim();
+
+  // Support BOTH payload formats:
+  // 1) { productId, optionGroups, variants }
+  // 2) { productId, options: { groups, variants } }
+  const optionGroups =
+    asArray<OptionGroup>(body?.optionGroups) ||
+    asArray<OptionGroup>(body?.options?.optionGroups) ||
+    asArray<OptionGroup>(body?.options?.groups);
+
+  const variants =
+    asArray<Variant>(body?.variants) ||
+    asArray<Variant>(body?.options?.variants);
+
+  // Important: the `||` above won't work for arrays because [] is truthy.
+  // So we must pick the first NON-empty candidate manually.
+  const pick = <T>(...cands: T[][]) => (cands.find((a) => Array.isArray(a) && a.length > 0) ?? []);
+  const finalGroups = pick(
+    asArray<OptionGroup>(body?.optionGroups),
+    asArray<OptionGroup>(body?.options?.optionGroups),
+    asArray<OptionGroup>(body?.options?.groups)
+  );
+  const finalVariants = pick(
+    asArray<Variant>(body?.variants),
+    asArray<Variant>(body?.options?.variants)
+  );
+
+  return { productId, optionGroups: finalGroups, variants: finalVariants };
+}
+
+function sanitizeStored(data: { optionGroups: any[]; variants: any[] }): ProductOptionsStored {
+  const optionGroups = asArray<OptionGroup>(data.optionGroups)
+    .filter((g) => g && typeof g.id === "string" && typeof g.name === "string")
+    .map((g) => ({
+      id: String(g.id),
+      name: String(g.name),
+      type: (g.type as any) || "select",
+      required: Boolean(g.required),
+      values: asArray<string>(g.values).map(String),
+    }));
+
+  const variants = asArray<Variant>(data.variants)
+    .filter((v) => v && typeof v.id === "string" && v.options && typeof v.options === "object")
+    .map((v) => ({
+      id: String(v.id),
+      options: Object.fromEntries(Object.entries(v.options || {}).map(([k, val]) => [String(k), String(val)])),
+      priceMode: (v.priceMode as any) || "fixed",
+      priceValue: Number(v.priceValue ?? 0),
+      sku: v.sku ? String(v.sku) : undefined,
+      stock: v.stock == null ? undefined : Number(v.stock),
+      isActive: v.isActive == null ? undefined : Boolean(v.isActive),
+    }));
+
+  return { optionGroups, variants };
+}
+
 export async function GET(req: Request) {
   const initData = req.headers.get("x-tg-init-data") || "";
   const a = requireAdmin(initData);
@@ -56,7 +135,7 @@ export async function GET(req: Request) {
   const productId = (url.searchParams.get("productId") || "").trim();
   if (!productId) return NextResponse.json({ ok: false, error: "productId обязателен" }, { status: 400 });
 
-  const data = await kvGetJson<{ optionGroups: any[]; variants: any[] }>(keyFor(productId), {
+  const data = await kvGetJson<ProductOptionsStored>(keyFor(productId), {
     optionGroups: [],
     variants: [],
   });
@@ -64,26 +143,23 @@ export async function GET(req: Request) {
   return NextResponse.json({ ok: true, productId, ...data });
 }
 
-// Сохранить опции/варианты товара
 export async function PUT(req: Request) {
   const initData = req.headers.get("x-tg-init-data") || "";
   const a = requireAdmin(initData);
   if (!a.ok) return NextResponse.json({ ok: false, error: a.error }, { status: 403 });
 
-  const body = (await req.json().catch(() => ({}))) as Partial<ProductOptionsPayload>;
-
-  const productId = String(body?.productId || "").trim();
-  const optionGroups = Array.isArray(body?.optionGroups) ? body!.optionGroups : [];
-  const variants = Array.isArray(body?.variants) ? body!.variants : [];
+  const raw = (await req.json().catch(() => ({}))) as Partial<ProductOptionsPayloadV1 & ProductOptionsPayloadV2>;
+  const { productId, optionGroups, variants } = normalizeBody(raw);
 
   if (!productId) return NextResponse.json({ ok: false, error: "productId обязателен" }, { status: 400 });
 
-  // Мини-защита: чтобы не улетал мусор
-  if (!Array.isArray(optionGroups) || !Array.isArray(variants)) {
-    return NextResponse.json({ ok: false, error: "optionGroups/variants должны быть массивами" }, { status: 400 });
-  }
+  const stored = sanitizeStored({ optionGroups, variants });
 
-  await kvSetJson(keyFor(productId), { optionGroups, variants });
+  await kvSetJson(keyFor(productId), stored);
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    productId,
+    saved: { optionGroups: stored.optionGroups.length, variants: stored.variants.length },
+  });
 }
