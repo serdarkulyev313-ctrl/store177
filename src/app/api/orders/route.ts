@@ -1,10 +1,10 @@
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { verifyTelegramInitData } from "@/lib/tgVerify";
-import { readProducts, writeProducts } from "@/lib/productsStore";
-import { makeOrderId, readOrders, writeOrders } from "@/lib/ordersStore";
 import { tgSendMessage } from "@/lib/tgSend";
+import { createOrder } from "@/lib/db/orders";
 
 function getAdminIds(): number[] {
   const raw = process.env.ADMIN_TG_IDS || "";
@@ -24,18 +24,6 @@ function safe(s: any) {
   return String(s ?? "").replace(/[<>]/g, "");
 }
 
-function asArrayProducts(data: any): any[] {
-  if (Array.isArray(data)) return data;
-  if (data && Array.isArray(data.products)) return data.products;
-  return [];
-}
-
-function asArrayOrders(data: any): any[] {
-  if (Array.isArray(data)) return data;
-  if (data && Array.isArray(data.orders)) return data.orders;
-  return [];
-}
-
 export async function POST(req: Request) {
   try {
     const initData = req.headers.get("x-tg-init-data") || "";
@@ -45,7 +33,12 @@ export async function POST(req: Request) {
 
     if (initData) {
       const v = verifyTelegramInitData(initData);
-      if (!v.ok) return NextResponse.json({ ok: false, error: v.error }, { status: 401 });
+      if (!v.ok) {
+        return NextResponse.json(
+          { ok: false, error: v.error },
+          { status: 401, headers: { "Cache-Control": "no-store" } }
+        );
+      }
       tgUserId = v.user?.id ?? null;
     }
 
@@ -57,107 +50,66 @@ export async function POST(req: Request) {
     const address = method === "courier" ? String(body.address || "").trim() : "";
     const comment = String(body.comment || "").trim();
 
-    const itemsIn = Array.isArray(body.items) ? body.items : [];
+    const itemsIn = Array.isArray(body.items)
+      ? (body.items as Array<{ productId?: string; id?: string; qty?: number }>)
+      : [];
 
     if (!customerName || !phone) {
-      return NextResponse.json({ ok: false, error: "name/phone required" }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, error: "name/phone required" },
+        { status: 400, headers: { "Cache-Control": "no-store" } }
+      );
     }
     if (method === "courier" && !address) {
-      return NextResponse.json({ ok: false, error: "address required" }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, error: "address required" },
+        { status: 400, headers: { "Cache-Control": "no-store" } }
+      );
     }
     if (!itemsIn.length) {
-      return NextResponse.json({ ok: false, error: "items required" }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, error: "items required" },
+        { status: 400, headers: { "Cache-Control": "no-store" } }
+      );
     }
 
-    // ✅ ВАЖНО: await (на случай если readProducts async)
-    const productsRaw = await readProducts();
-    const products = asArrayProducts(productsRaw);
+    const items = itemsIn.map((it) => ({
+      productId: String(it.productId || it.id || "").trim(),
+      qty: Number(it.qty || 0),
+    }));
 
-    if (!Array.isArray(products) || !products.length) {
-      return NextResponse.json({ ok: false, error: "products store empty or invalid" }, { status: 500 });
+    if (items.some((item) => !item.productId || !Number.isFinite(item.qty) || item.qty <= 0)) {
+      return NextResponse.json(
+        { ok: false, error: "bad items" },
+        { status: 400, headers: { "Cache-Control": "no-store" } }
+      );
     }
 
-    const orderItems: { productId: string; title: string; price: number; qty: number }[] = [];
-    let total = 0;
-
-    for (const it of itemsIn) {
-      const productId = String(it.productId || it.id || "").trim();
-      const qty = Number(it.qty || 0);
-
-      if (!productId || !Number.isFinite(qty) || qty <= 0) {
-        return NextResponse.json({ ok: false, error: "bad items" }, { status: 400 });
-      }
-
-      const p = products.find((x: any) => x.id === productId);
-      if (!p) return NextResponse.json({ ok: false, error: `product not found: ${productId}` }, { status: 404 });
-
-      if (Number(p.stock) < qty) {
-        return NextResponse.json({ ok: false, error: `not enough stock: ${p.title}` }, { status: 400 });
-      }
-
-      const price = Number(p.price);
-      orderItems.push({
-        productId,
-        title: String(p.title),
-        price,
-        qty,
-      });
-
-      total += price * qty;
-    }
-
-    // списываем остатки
-    const updatedProducts = products.map((p: any) => {
-      const hit = orderItems.find((x) => x.productId === p.id);
-      if (!hit) return p;
-      return { ...p, stock: Number(p.stock) - hit.qty };
-    });
-
-    // ✅ ВАЖНО: await (на случай если writeProducts async)
-    await writeProducts(updatedProducts);
-
-    // ✅ ВАЖНО: await (на случай если readOrders async)
-    const ordersRaw = await readOrders();
-    const orders = asArrayOrders(ordersRaw);
-
-    const id = makeOrderId();
-
-    const order: any = {
-      id,
-      createdAt: new Date().toISOString(),
-
+    const order = await createOrder({
       tgUserId,
       customerName,
       phone,
       method,
       address: method === "courier" ? address : null,
-      comment: comment ? comment : null,
-
-      items: orderItems,
-      total,
-
-      orderStatus: "created",
-      paymentStatus: "unpaid",
-    };
-
-    orders.push(order);
-
-    // ✅ ВАЖНО: await (на случай если writeOrders async)
-    await writeOrders(orders);
+      comment,
+      items,
+    });
 
     // уведомление админу
     const admins = getAdminIds();
     const adminText =
       `<b>🛒 Новый заказ</b>\n` +
-      `№ <b>${safe(id)}</b>\n` +
+      `№ <b>${safe(order.id)}</b>\n` +
       `Клиент: <b>${safe(customerName)}</b>\n` +
       `Телефон: <b>${safe(phone)}</b>\n` +
       `Получение: <b>${method === "courier" ? "Курьер" : "Самовывоз"}</b>\n` +
       (method === "courier" ? `Адрес: <b>${safe(address)}</b>\n` : "") +
       (comment ? `Комментарий: <i>${safe(comment)}</i>\n` : "") +
       `\n<b>Состав:</b>\n` +
-      orderItems.map((x) => `• ${safe(x.title)} × ${x.qty} = <b>${money(x.price * x.qty)}</b>`).join("\n") +
-      `\n\nИтого: <b>${money(total)}</b>`;
+      order.items
+        .map((x) => `• ${safe(x.titleSnapshot)} × ${x.qty} = <b>${money(x.priceSnapshot * x.qty)}</b>`)
+        .join("\n") +
+      `\n\nИтого: <b>${money(order.total)}</b>`;
 
     for (const adminId of admins) {
       await tgSendMessage(adminId, adminText);
@@ -167,13 +119,16 @@ export async function POST(req: Request) {
     if (tgUserId) {
       await tgSendMessage(
         tgUserId,
-        `<b>Store 177</b>\nЗаявка принята ✅\nНомер заказа: <b>${safe(id)}</b>\nМенеджер скоро подтвердит.`
+        `<b>Store 177</b>\nЗаявка принята ✅\nНомер заказа: <b>${safe(order.id)}</b>\nМенеджер скоро подтвердит.`
       );
     }
 
-    return NextResponse.json({ ok: true, id });
+    return NextResponse.json({ ok: true, id: order.id }, { headers: { "Cache-Control": "no-store" } });
   } catch (e: any) {
     console.error("POST /api/orders failed:", e);
-    return NextResponse.json({ ok: false, error: "server error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: e?.message || "server error" },
+      { status: 500, headers: { "Cache-Control": "no-store" } }
+    );
   }
 }

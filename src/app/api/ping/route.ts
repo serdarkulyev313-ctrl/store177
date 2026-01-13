@@ -9,15 +9,18 @@ export async function GET(req: Request) {
   if (!token) return new NextResponse("Server error: TELEGRAM_BOT_TOKEN is empty", { status: 500 });
 
   if (!initData) {
-    return new NextResponse("OK (no initData). Later we will open inside Telegram.", { status: 200 });
+    return new NextResponse("OK (no initData). Later we will open inside Telegram.", {
+      status: 200,
+      headers: { "Cache-Control": "no-store" },
+    });
   }
 
   const check = verifyTelegramInitData(initData, token);
   if (!check.ok) {
-    return new NextResponse(`Bad initData: ${check.reason}`, { status: 401 });
+    return new NextResponse(`Bad initData: ${check.error}`, { status: 401, headers: { "Cache-Control": "no-store" } });
   }
 
   const u = check.user;
   const who = u ? `${u.id} @${u.username || "-"} ${u.first_name || ""}` : "no user";
-  return new NextResponse(`OK initData ✅ user: ${who}`, { status: 200 });
+  return new NextResponse(`OK initData ✅ user: ${who}`, { status: 200, headers: { "Cache-Control": "no-store" } });
 }
