@@ -85,7 +85,8 @@ function signature(groups: OptionGroup[], options: Record<string, string | null>
 export default function ProductOptionsPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
-  const productId = params?.id;
+  const productIdRaw = (params as any)?.id;
+  const productId = typeof productIdRaw === "string" ? productIdRaw : "";
 
   const [initData, setInitData] = useState("");
   const [role, setRole] = useState<"loading" | "admin" | "user">("loading");
@@ -138,7 +139,14 @@ export default function ProductOptionsPage() {
       });
       const oj = await or.json();
       if (!oj.ok) return setMsg(`Ошибка: ${oj.error}`);
-      setOpts(oj.options);
+
+      // подстрахуемся, что productId всегда проставлен
+      const incoming = (oj.options || {}) as ProductOptions;
+      setOpts({
+        productId,
+        groups: incoming.groups || [],
+        variants: incoming.variants || [],
+      });
     })();
   }, [role, initData, productId]);
 
@@ -172,22 +180,28 @@ export default function ProductOptionsPage() {
   }, [role, productId, initData]);
 
   function ensureOpts(): ProductOptions {
-    return opts || { productId: productId!, groups: [], variants: [] };
+    return opts || { productId: productId || "", groups: [], variants: [] };
   }
 
   function updateGroups(next: OptionGroup[]) {
     const cur = ensureOpts();
-    setOpts({ ...cur, groups: next });
+    setOpts({ ...cur, productId: productId || cur.productId, groups: next });
   }
 
   function updateVariants(next: ProductVariant[]) {
     const cur = ensureOpts();
-    setOpts({ ...cur, variants: next });
+    setOpts({ ...cur, productId: productId || cur.productId, variants: next });
   }
 
   function addGroup() {
     const cur = ensureOpts();
-    const g: OptionGroup = { id: uid("g"), name: "Новая группа", type: "select", required: true, values: ["Значение 1"] };
+    const g: OptionGroup = {
+      id: uid("g"),
+      name: "Новая группа",
+      type: "select",
+      required: true,
+      values: ["Значение 1"],
+    };
     updateGroups([...(cur.groups || []), g]);
   }
 
@@ -206,13 +220,15 @@ export default function ProductOptionsPage() {
     const cur = ensureOpts();
     if (!confirm("Удалить группу опций?")) return;
     const groups = cur.groups.filter((g) => g.id !== id);
+
     // также чистим варианты
     const variants = cur.variants.map((v) => {
       const o = { ...v.options };
       delete o[id];
       return { ...v, options: o };
     });
-    setOpts({ ...cur, groups, variants });
+
+    setOpts({ ...cur, productId: productId || cur.productId, groups, variants });
   }
 
   function generateVariants() {
@@ -259,28 +275,32 @@ export default function ProductOptionsPage() {
   }
 
   async function saveAll() {
-    if (!opts) return;
     setMsg("");
 
-    const payload = JSON.stringify({ options: opts });
-    const headers = { "Content-Type": "application/json", "X-TG-INIT-DATA": initData };
-
-    let r = await fetch("/api/admin/product-options", {
-      method: "PUT",
-      headers,
-      body: payload,
-    });
-
-    if (r.status === 405) {
-      r = await fetch("/api/admin/product-options", {
-        method: "POST",
-        headers,
-        body: payload,
-      });
+    if (!productId) {
+      setMsg("Ошибка сохранения:\nproductId отсутствует (похоже, страница открыта без корректного /admin/products/[id]).");
+      return;
     }
 
-    const j = await r.json().catch(() => null);
-    if (!j?.ok) return setMsg(`Ошибка сохранения:\n${j?.error || "unknown"}`);
+    const cur = ensureOpts();
+
+    // ВАЖНО: бэку отдаем productId в корне, а options — отдельно
+    const payload = {
+      productId,
+      options: {
+        groups: cur.groups || [],
+        variants: cur.variants || [],
+      },
+    };
+
+    const r = await fetch("/api/admin/product-options", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "X-TG-INIT-DATA": initData },
+      body: JSON.stringify(payload),
+    });
+
+    const j = await r.json();
+    if (!j.ok) return setMsg(`Ошибка сохранения:\n${j.error}`);
     setMsg("Сохранено ✅");
 
     const refresh = await fetch(`/api/admin/product-options?productId=${encodeURIComponent(productId)}`, {
@@ -289,45 +309,6 @@ export default function ProductOptionsPage() {
     });
     const refreshed = await refresh.json().catch(() => null);
     if (refreshed?.ok) setOpts(refreshed.options);
-  }
-
-  async function saveProduct() {
-    if (!productId) return;
-    setMsg("");
-    const r = await fetch("/api/admin/products", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", "X-TG-INIT-DATA": initData },
-      body: JSON.stringify({
-        id: productId,
-        patch: {
-          title: form.title,
-          brand: form.brand,
-          description: form.description,
-          condition: form.condition,
-          isActive: form.isActive,
-        },
-      }),
-    });
-    const j = await r.json().catch(() => null);
-    if (!j?.ok) return setMsg(`Ошибка сохранения:\n${j?.error || "unknown"}`);
-    setMsg("Товар обновлён ✅");
-  }
-
-  async function handleUpload(file: File) {
-    if (!productId) return;
-    setMsg("");
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("productId", productId);
-    const r = await fetch("/api/admin/upload-image", {
-      method: "POST",
-      headers: { "X-TG-INIT-DATA": initData },
-      body: formData,
-    });
-    const j = await r.json().catch(() => null);
-    if (!j?.ok) return setMsg(`Ошибка загрузки:\n${j?.error || "unknown"}`);
-    setMsg("Фото добавлено ✅");
-    await loadImages();
   }
 
   if (role === "loading") return <main style={{ padding: 16, fontFamily: "system-ui" }}>Загрузка…</main>;

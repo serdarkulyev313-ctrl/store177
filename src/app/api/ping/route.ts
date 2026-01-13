@@ -17,7 +17,7 @@ export async function GET(req: Request) {
 
   const check = verifyTelegramInitData(initData, token);
   if (!check.ok) {
-    return new NextResponse(`Bad initData: ${check.error}`, { status: 401, headers: { "Cache-Control": "no-store" } });
+    return new NextResponse(`Bad initData: ${check.error}`, { status: 401 });
   }
 
   const u = check.user;
