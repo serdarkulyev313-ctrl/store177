@@ -1,3 +1,6 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
 
@@ -81,7 +84,9 @@ async function writeProducts(products: Product[]) {
 export async function GET(req: Request) {
   const initData = req.headers.get("x-tg-init-data") || "";
   const a = requireAdmin(initData);
-  if (!a.ok) return NextResponse.json({ ok: false, error: a.error }, { status: 403 });
+  if (!a.ok) {
+    return NextResponse.json({ ok: false, error: a.error }, { status: 403, headers: { "Cache-Control": "no-store" } });
+  }
 
   const products = await readProducts();
   return NextResponse.json(
@@ -93,12 +98,15 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const initData = req.headers.get("x-tg-init-data") || "";
   const a = requireAdmin(initData);
-  if (!a.ok) return NextResponse.json({ ok: false, error: a.error }, { status: 403 });
+  if (!a.ok) {
+    return NextResponse.json({ ok: false, error: a.error }, { status: 403, headers: { "Cache-Control": "no-store" } });
+  }
 
   const body = await req.json().catch(() => ({}));
   const title = String(body?.title || "").trim();
   const brand = String(body?.brand || "").trim();
   const condition = body?.condition === "used" ? "used" : "new";
+  const description = body?.description ? String(body.description).trim() : undefined;
 
   if (!title || !brand) {
     return NextResponse.json({ ok: false, error: "title/brand обязательны" }, { status: 400 });
@@ -107,8 +115,7 @@ export async function POST(req: Request) {
   const products = await readProducts();
   const id = makeProductId();
 
-  const p: Product = {
-    id,
+  const product = await createProduct({
     title,
     brand,
     condition,
@@ -136,7 +143,9 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   const initData = req.headers.get("x-tg-init-data") || "";
   const a = requireAdmin(initData);
-  if (!a.ok) return NextResponse.json({ ok: false, error: a.error }, { status: 403 });
+  if (!a.ok) {
+    return NextResponse.json({ ok: false, error: a.error }, { status: 403, headers: { "Cache-Control": "no-store" } });
+  }
 
   const body = await req.json().catch(() => ({}));
   const id = String(body?.id || "");
@@ -181,15 +190,22 @@ export async function PATCH(req: Request) {
 export async function DELETE(req: Request) {
   const initData = req.headers.get("x-tg-init-data") || "";
   const a = requireAdmin(initData);
-  if (!a.ok) return NextResponse.json({ ok: false, error: a.error }, { status: 403 });
+  if (!a.ok) {
+    return NextResponse.json({ ok: false, error: a.error }, { status: 403, headers: { "Cache-Control": "no-store" } });
+  }
 
   const body = await req.json().catch(() => ({}));
   const id = String(body?.id || "");
-  if (!id) return NextResponse.json({ ok: false, error: "id обязателен" }, { status: 400 });
+  if (!id) {
+    return NextResponse.json(
+      { ok: false, error: "id обязателен" },
+      { status: 400, headers: { "Cache-Control": "no-store" } }
+    );
+  }
 
   const products = await readProducts();
   const next = products.filter((p) => p.id !== id);
   await writeProducts(next);
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
 }

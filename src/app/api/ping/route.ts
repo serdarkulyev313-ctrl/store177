@@ -9,7 +9,10 @@ export async function GET(req: Request) {
   if (!token) return new NextResponse("Server error: TELEGRAM_BOT_TOKEN is empty", { status: 500 });
 
   if (!initData) {
-    return new NextResponse("OK (no initData). Later we will open inside Telegram.", { status: 200 });
+    return new NextResponse("OK (no initData). Later we will open inside Telegram.", {
+      status: 200,
+      headers: { "Cache-Control": "no-store" },
+    });
   }
 
   const check = verifyTelegramInitData(initData, token);
@@ -19,5 +22,5 @@ export async function GET(req: Request) {
 
   const u = check.user;
   const who = u ? `${u.id} @${u.username || "-"} ${u.first_name || ""}` : "no user";
-  return new NextResponse(`OK initData ✅ user: ${who}`, { status: 200 });
+  return new NextResponse(`OK initData ✅ user: ${who}`, { status: 200, headers: { "Cache-Control": "no-store" } });
 }

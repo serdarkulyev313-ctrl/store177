@@ -13,7 +13,7 @@ export type OptionGroup = {
   values: string[]; // для select/radio/checkbox
 };
 
-export type VariantPriceMode = "delta" | "fixed";
+export type VariantPriceMode = "delta" | "fixed" | "final";
 
 export type ProductVariant = {
   id: string;
@@ -125,7 +125,7 @@ export function normalizeGroupValues(values: string[]) {
   return out;
 }
 
-export function validateProductOptions(opts: ProductOptions) {
+export function validateProductOptions(opts: ProductOptionsInput) {
   const errors: string[] = [];
 
   // groups

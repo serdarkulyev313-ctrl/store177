@@ -8,6 +8,9 @@ type Product = {
   title: string;
   brand: string;
   condition: "new" | "used";
+  description?: string | null;
+  isActive?: boolean;
+  imageUrls?: string[];
   price: number;
   oldPrice: number | null;
   stock: number;
@@ -93,6 +96,14 @@ export default function ProductOptionsPage() {
 
   const [opts, setOpts] = useState<ProductOptions | null>(null);
   const [msg, setMsg] = useState("");
+  const [images, setImages] = useState<{ id: string; url: string; sortOrder: number }[]>([]);
+  const [form, setForm] = useState({
+    title: "",
+    brand: "",
+    description: "",
+    condition: "new" as "new" | "used",
+    isActive: true,
+  });
 
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
@@ -138,6 +149,35 @@ export default function ProductOptionsPage() {
       });
     })();
   }, [role, initData, productId]);
+
+  useEffect(() => {
+    if (!productId || role !== "admin") return;
+    const next = {
+      title: product?.title || "",
+      brand: product?.brand || "",
+      description: product?.description || "",
+      condition: product?.condition || "new",
+      isActive: product?.isActive ?? true,
+    };
+    setForm(next);
+  }, [productId, product, role]);
+
+  async function loadImages() {
+    if (!productId) return;
+    const r = await fetch(`/api/admin/product-images?productId=${encodeURIComponent(productId)}`, {
+      headers: { "X-TG-INIT-DATA": initData },
+      cache: "no-store",
+    });
+    const j = await r.json().catch(() => null);
+    if (j?.ok) setImages(j.images || []);
+  }
+
+  useEffect(() => {
+    if (role !== "admin") return;
+    if (!productId) return;
+    loadImages();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role, productId, initData]);
 
   function ensureOpts(): ProductOptions {
     return opts || { productId: productId || "", groups: [], variants: [] };
@@ -295,6 +335,62 @@ export default function ProductOptionsPage() {
       <div style={{ opacity: 0.8 }}>
         Товар: <b>{product?.title || productId}</b>
       </div>
+
+      <section style={{ marginTop: 12, padding: 12, border: "1px solid #e5e5e5", borderRadius: 12 }}>
+        <h2 style={{ marginTop: 0 }}>Основные данные</h2>
+        <div style={{ display: "grid", gap: 8 }}>
+          <input
+            placeholder="Название"
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+          />
+          <input
+            placeholder="Бренд"
+            value={form.brand}
+            onChange={(e) => setForm({ ...form, brand: e.target.value })}
+          />
+          <select
+            value={form.condition}
+            onChange={(e) => setForm({ ...form, condition: e.target.value as "new" | "used" })}
+          >
+            <option value="new">Новый</option>
+            <option value="used">Б/у</option>
+          </select>
+          <textarea
+            placeholder="Описание"
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            style={{ minHeight: 80 }}
+          />
+          <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              type="checkbox"
+              checked={form.isActive}
+              onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+            />
+            Активный товар
+          </label>
+          <button onClick={saveProduct}>Сохранить данные</button>
+        </div>
+      </section>
+
+      <section style={{ marginTop: 12, padding: 12, border: "1px solid #e5e5e5", borderRadius: 12 }}>
+        <h2 style={{ marginTop: 0 }}>Фотографии</h2>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => {
+            const file = (e.target as HTMLInputElement).files?.[0];
+            if (file) handleUpload(file);
+          }}
+        />
+        <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+          {images.length === 0 ? <div style={{ opacity: 0.7 }}>Фото пока нет.</div> : null}
+          {images.map((img) => (
+            <img key={img.id} src={img.url} alt="Фото товара" style={{ width: "100%", borderRadius: 10 }} />
+          ))}
+        </div>
+      </section>
 
       {msg ? (
         <pre style={{ whiteSpace: "pre-wrap", marginTop: 10, padding: 10, border: "1px solid #ddd", borderRadius: 12 }}>
