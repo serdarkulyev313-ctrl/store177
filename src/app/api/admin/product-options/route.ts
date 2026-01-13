@@ -133,14 +133,19 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const productId = (url.searchParams.get("productId") || "").trim();
-  if (!productId) return NextResponse.json({ ok: false, error: "productId обязателен" }, { status: 400 });
+  if (!productId) {
+    return NextResponse.json({ ok: false, error: "productId обязателен" }, { status: 400 });
+  }
 
   const data = await kvGetJson<ProductOptionsStored>(keyFor(productId), {
     optionGroups: [],
     variants: [],
   });
 
-  return NextResponse.json({ ok: true, productId, ...data });
+  return NextResponse.json(
+    { ok: true, productId, ...data },
+    { headers: { "Cache-Control": "no-store" } }
+  );
 }
 
 async function handleWrite(req: Request) {
@@ -148,18 +153,35 @@ async function handleWrite(req: Request) {
   const a = requireAdmin(initData);
   if (!a.ok) return NextResponse.json({ ok: false, error: a.error }, { status: 403 });
 
-  const raw = (await req.json().catch(() => ({}))) as Partial<ProductOptionsPayloadV1 & ProductOptionsPayloadV2>;
+  const raw = (await req.json().catch(() => ({}))) as Partial<
+    ProductOptionsPayloadV1 & ProductOptionsPayloadV2
+  >;
+
   const { productId, optionGroups, variants } = normalizeBody(raw);
 
-  if (!productId) return NextResponse.json({ ok: false, error: "productId обязателен" }, { status: 400 });
+  if (!productId) {
+    return NextResponse.json({ ok: false, error: "productId обязателен" }, { status: 400 });
+  }
 
   const stored = sanitizeStored({ optionGroups, variants });
 
   await kvSetJson(keyFor(productId), stored);
 
-  return NextResponse.json({
-    ok: true,
-    productId,
-    saved: { optionGroups: stored.optionGroups.length, variants: stored.variants.length },
-  });
+  return NextResponse.json(
+    {
+      ok: true,
+      productId,
+      saved: { optionGroups: stored.optionGroups.length, variants: stored.variants.length },
+    },
+    { headers: { "Cache-Control": "no-store" } }
+  );
+}
+
+export async function PUT(req: Request) {
+  return handleWrite(req);
+}
+
+// Если фронт шлёт POST (часто так бывает) — оставь тоже:
+export async function POST(req: Request) {
+  return handleWrite(req);
 }
