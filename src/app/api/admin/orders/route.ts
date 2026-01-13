@@ -3,8 +3,8 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { verifyTelegramInitData } from "@/lib/tgVerify";
-import { readOrders, writeOrders, Order } from "@/lib/ordersStore";
 import { tgSendMessage } from "@/lib/tgSend";
+import { listOrders, updateOrderStatus } from "@/lib/db/orders";
 
 function getAdminIds(): number[] {
   const raw = process.env.ADMIN_TG_IDS || "";
@@ -45,7 +45,7 @@ function money(n: number) {
   return new Intl.NumberFormat("ru-RU").format(n) + " ₽";
 }
 
-function buildClientMessage(order: Order, changed: { orderStatus?: string; paymentStatus?: string }) {
+function buildClientMessage(order: any, changed: { orderStatus?: string; paymentStatus?: string }) {
   const lines: string[] = [];
   lines.push(`<b>Store 177</b>`);
   lines.push(`Заказ <b>${safe(order.id)}</b>`);
@@ -61,48 +61,52 @@ function buildClientMessage(order: Order, changed: { orderStatus?: string; payme
 export async function GET(req: Request) {
   const initData = req.headers.get("x-tg-init-data") || "";
   const a = requireAdmin(initData);
-  if (!a.ok) return NextResponse.json({ ok: false, error: a.error }, { status: 403 });
+  if (!a.ok) {
+    return NextResponse.json({ ok: false, error: a.error }, { status: 403, headers: { "Cache-Control": "no-store" } });
+  }
 
-  const orders = readOrders().sort((x, y) => (y.createdAt || "").localeCompare(x.createdAt || ""));
+  const orders = await listOrders();
 
-  return NextResponse.json(
-    { ok: true, orders },
-    { headers: { "Cache-Control": "no-store" } }
-  );
+  const mapped = orders.map((order) => ({
+    ...order,
+    items: order.items.map((item: any) => ({
+      title: item.titleSnapshot,
+      qty: item.qty,
+      price: item.priceSnapshot,
+    })),
+  }));
+
+  return NextResponse.json({ ok: true, orders: mapped }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function PATCH(req: Request) {
   const initData = req.headers.get("x-tg-init-data") || "";
   const a = requireAdmin(initData);
-  if (!a.ok) return NextResponse.json({ ok: false, error: a.error }, { status: 403 });
+  if (!a.ok) {
+    return NextResponse.json({ ok: false, error: a.error }, { status: 403, headers: { "Cache-Control": "no-store" } });
+  }
 
   const body = await req.json().catch(() => ({}));
   const { id, orderStatus, paymentStatus } = body || {};
-  if (!id) return NextResponse.json({ ok: false, error: "id required" }, { status: 400 });
-
-  const orders = readOrders();
-  const idx = orders.findIndex((o) => o.id === id);
-  if (idx === -1) return NextResponse.json({ ok: false, error: "order not found" }, { status: 404 });
-
-  const before = orders[idx];
-
-  const changed: { orderStatus?: string; paymentStatus?: string } = {};
-  if (orderStatus && orderStatus !== before.orderStatus) changed.orderStatus = orderStatus;
-  if (paymentStatus && paymentStatus !== before.paymentStatus) changed.paymentStatus = paymentStatus;
-
-  const updated: Order = {
-    ...before,
-    ...(orderStatus ? { orderStatus } : {}),
-    ...(paymentStatus ? { paymentStatus } : {}),
-    updatedAt: new Date().toISOString(),
-  };
-
-  orders[idx] = updated;
-  writeOrders(orders);
-
-  if (updated.tgUserId && (changed.orderStatus || changed.paymentStatus)) {
-    await tgSendMessage(updated.tgUserId, buildClientMessage(updated, changed));
+  if (!id) {
+    return NextResponse.json({ ok: false, error: "id required" }, { status: 400, headers: { "Cache-Control": "no-store" } });
   }
 
-  return NextResponse.json({ ok: true });
+  try {
+    const updated = await updateOrderStatus(id, { orderStatus, paymentStatus });
+    const changed: { orderStatus?: string; paymentStatus?: string } = {};
+    if (orderStatus) changed.orderStatus = orderStatus;
+    if (paymentStatus) changed.paymentStatus = paymentStatus;
+
+    if (updated.tgUserId && (changed.orderStatus || changed.paymentStatus)) {
+      await tgSendMessage(updated.tgUserId, buildClientMessage(updated, changed));
+    }
+
+    return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error: any) {
+    return NextResponse.json(
+      { ok: false, error: error?.message || "update failed" },
+      { status: 500, headers: { "Cache-Control": "no-store" } }
+    );
+  }
 }

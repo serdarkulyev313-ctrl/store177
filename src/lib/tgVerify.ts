@@ -17,8 +17,11 @@ function timingSafeEqualHex(a: string, b: string) {
   return crypto.timingSafeEqual(ab, bb);
 }
 
-export function verifyTelegramInitData(initData: string): { ok: true; user: TgUser | null } | { ok: false; error: string } {
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+export function verifyTelegramInitData(
+  initData: string,
+  botTokenOverride?: string
+): { ok: true; user: TgUser | null } | { ok: false; error: string } {
+  const botToken = botTokenOverride || process.env.TELEGRAM_BOT_TOKEN;
 
   // ✅ чтобы сервер НЕ падал, а нормально отдавал ошибку
   if (!botToken) return { ok: false, error: "TELEGRAM_BOT_TOKEN missing" };
