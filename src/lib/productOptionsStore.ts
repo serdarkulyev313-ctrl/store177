@@ -1,3 +1,6 @@
+import fs from "fs";
+import path from "path";
+
 import { kvGetJson, kvSetJson } from "@/lib/kv";
 
 export type OptionInputType = "select" | "radio" | "checkbox" | "text";
@@ -29,14 +32,57 @@ export type ProductOptions = {
 };
 
 const KV_KEY_PREFIX = "product-options:";
+const DATA_DIR = path.join(process.cwd(), "data");
+const FILE_PATH = path.join(DATA_DIR, "productOptions.json");
+
+function isKvConfigured() {
+  return Boolean(
+    process.env.KV_REST_API_URL ||
+      process.env.KV_REST_API_TOKEN ||
+      process.env.VERCEL_KV_REST_API_URL ||
+      process.env.VERCEL_KV_REST_API_TOKEN
+  );
+}
+
+function ensureFileStorage() {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (!fs.existsSync(FILE_PATH)) fs.writeFileSync(FILE_PATH, "{}", "utf-8");
+}
+
+function readFileDb(): Record<string, ProductOptions> {
+  try {
+    ensureFileStorage();
+    const raw = fs.readFileSync(FILE_PATH, "utf-8");
+    const json = JSON.parse(raw || "{}");
+    if (json && typeof json === "object") return json as Record<string, ProductOptions>;
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+function writeFileDb(db: Record<string, ProductOptions>) {
+  ensureFileStorage();
+  fs.writeFileSync(FILE_PATH, JSON.stringify(db, null, 2), "utf-8");
+}
 
 function kvKey(productId: string) {
   return `${KV_KEY_PREFIX}${productId}`;
 }
 
 export async function getProductOptions(productId: string): Promise<ProductOptions> {
-  const existing = await kvGetJson<ProductOptions | null>(kvKey(productId), null);
-  if (existing) return existing;
+  if (isKvConfigured()) {
+    try {
+      const existing = await kvGetJson<ProductOptions | null>(kvKey(productId), null);
+      if (existing) return existing;
+    } catch {
+      // fallback to file storage
+    }
+  }
+
+  const db = readFileDb();
+  const fromFile = db[productId];
+  if (fromFile) return fromFile;
 
   return {
     productId,
@@ -48,7 +94,18 @@ export async function getProductOptions(productId: string): Promise<ProductOptio
 
 export async function saveProductOptions(opts: ProductOptions) {
   const next = { ...opts, updatedAt: new Date().toISOString() };
-  await kvSetJson<ProductOptions>(kvKey(opts.productId), next);
+  if (isKvConfigured()) {
+    try {
+      await kvSetJson<ProductOptions>(kvKey(opts.productId), next);
+      return;
+    } catch {
+      // fallback to file storage
+    }
+  }
+
+  const db = readFileDb();
+  db[opts.productId] = next;
+  writeFileDb(db);
 }
 
 // ---------- Валидации ----------
