@@ -12,9 +12,11 @@ export function validateOptionGroups(optionGroups: any[]): ValidateResult {
       if (!Array.isArray(g.values) || g.values.length === 0) {
         return { ok: false, error: `Группа "${g.name}" должна иметь значения` };
       }
-      const labels = g.values.map((v: any) => String(v?.label ?? "").trim());
-      if (labels.some((x) => !x)) return { ok: false, error: `Группа "${g.name}" содержит пустые значения` };
-      const set = new Set(labels.map((x) => x.toLowerCase()));
+      const labels: string[] = g.values.map((v: { label?: string }) => String(v?.label ?? "").trim());
+      if (labels.some((label: string) => !label)) {
+        return { ok: false, error: `Группа "${g.name}" содержит пустые значения` };
+      }
+      const set = new Set(labels.map((label: string) => label.toLowerCase()));
       if (set.size !== labels.length) return { ok: false, error: `Группа "${g.name}" содержит дубли значений` };
     }
   }

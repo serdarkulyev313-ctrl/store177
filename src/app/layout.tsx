@@ -1,3 +1,6 @@
+import "./globals.css";
+
+import Script from "next/script";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -14,9 +17,9 @@ export default function RootLayout({
     <html lang="ru">
       <head>
         {/* Telegram WebApp script (обязателен, чтобы появился window.Telegram) */}
-        <script src="https://telegram.org/js/telegram-web-app.js"></script>
+        <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
       </head>
-      <body style={{ margin: 0 }}>{children}</body>
+      <body className="min-h-screen bg-slate-50 text-slate-900">{children}</body>
     </html>
   );
 }
