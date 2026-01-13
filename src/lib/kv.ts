@@ -1,16 +1,9 @@
+// src/lib/kv.ts
 import { kv } from "@vercel/kv";
 
 export async function kvGetJson<T>(key: string, fallback: T): Promise<T> {
-  const value = await kv.get<T>(key);
-  if (value === null || value === undefined) return fallback;
-  if (typeof value === "string") {
-    try {
-      return JSON.parse(value) as T;
-    } catch {
-      return fallback;
-    }
-  }
-  return value;
+  const v = await kv.get<T>(key);
+  return (v ?? fallback) as T;
 }
 
 export async function kvSetJson<T>(key: string, value: T): Promise<void> {
