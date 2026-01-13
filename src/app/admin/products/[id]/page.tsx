@@ -262,6 +262,13 @@ export default function ProductOptionsPage() {
     const j = await r.json();
     if (!j.ok) return setMsg(`Ошибка сохранения:\n${j.error}`);
     setMsg("Сохранено ✅");
+
+    const refresh = await fetch(`/api/admin/product-options?productId=${encodeURIComponent(productId)}`, {
+      headers: { "X-TG-INIT-DATA": initData },
+      cache: "no-store",
+    });
+    const refreshed = await refresh.json().catch(() => null);
+    if (refreshed?.ok) setOpts(refreshed.options);
   }
 
   if (role === "loading") return <main style={{ padding: 16, fontFamily: "system-ui" }}>Загрузка…</main>;
