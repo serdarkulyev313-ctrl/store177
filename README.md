@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Store 177 (Telegram Mini App)
 
-## Getting Started
+## Быстрый старт (локально)
 
-First, run the development server:
+1) Установите зависимости:
+
+```bash
+npm install
+```
+
+2) Подготовьте переменные окружения в `.env.local`:
+
+```bash
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DB?sslmode=require"
+TELEGRAM_BOT_TOKEN="<token>"
+ADMIN_TG_IDS="123456789,987654321"
+PUBLIC_APP_URL="https://your-domain"
+BLOB_READ_WRITE_TOKEN="<vercel-blob-token>"
+```
+
+3) Примените миграции и сгенерируйте клиент Prisma:
+
+```bash
+npm run db:generate
+npm run db:migrate
+```
+
+4) Запустите dev-сервер:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Postgres (Neon/Supabase)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Проект работает с любым Postgres по `DATABASE_URL`.
+- Для Vercel можно подключить Neon/Supabase и добавить `DATABASE_URL` в Environment Variables.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Загрузка фото (Vercel Blob)
 
-## Learn More
+Для загрузки фото нужен токен:
+- `BLOB_READ_WRITE_TOKEN` (Vercel Blob)
 
-To learn more about Next.js, take a look at the following resources:
+API:
+- `POST /api/admin/upload-image` (multipart/form-data, поля: `file`, `productId`)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Vercel деплой
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1) Добавьте переменные окружения в проект Vercel:
+   - `DATABASE_URL`
+   - `TELEGRAM_BOT_TOKEN`
+   - `ADMIN_TG_IDS`
+   - `PUBLIC_APP_URL`
+   - `BLOB_READ_WRITE_TOKEN`
+2) Выполните redeploy.
 
-## Deploy on Vercel
+## Полезные команды
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run db:generate
+npm run db:migrate
+npm run db:migrate:deploy
+npm run build
+```
