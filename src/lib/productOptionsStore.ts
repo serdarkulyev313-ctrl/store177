@@ -31,12 +31,6 @@ export type ProductOptions = {
   updatedAt: string;
 };
 
-export type ProductOptionsInput = {
-  productId: string;
-  groups: OptionGroup[];
-  variants: ProductVariant[];
-};
-
 const KV_KEY_PREFIX = "product-options:";
 const DATA_DIR = path.join(process.cwd(), "data");
 const FILE_PATH = path.join(DATA_DIR, "productOptions.json");
@@ -48,10 +42,6 @@ function isKvConfigured() {
       process.env.VERCEL_KV_REST_API_URL ||
       process.env.VERCEL_KV_REST_API_TOKEN
   );
-}
-
-function isVercelRuntime() {
-  return Boolean(process.env.VERCEL);
 }
 
 function ensureFileStorage() {
@@ -88,8 +78,6 @@ export async function getProductOptions(productId: string): Promise<ProductOptio
     } catch {
       // fallback to file storage
     }
-  } else if (isVercelRuntime()) {
-    throw new Error("KV не настроен. Укажите переменные окружения Vercel KV.");
   }
 
   const db = readFileDb();
@@ -113,8 +101,6 @@ export async function saveProductOptions(opts: ProductOptions) {
     } catch {
       // fallback to file storage
     }
-  } else if (isVercelRuntime()) {
-    throw new Error("KV не настроен. Укажите переменные окружения Vercel KV.");
   }
 
   const db = readFileDb();
