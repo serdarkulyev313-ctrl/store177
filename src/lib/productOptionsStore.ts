@@ -44,10 +44,6 @@ function isKvConfigured() {
   );
 }
 
-function isVercelRuntime() {
-  return Boolean(process.env.VERCEL);
-}
-
 function ensureFileStorage() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
   if (!fs.existsSync(FILE_PATH)) fs.writeFileSync(FILE_PATH, "{}", "utf-8");
@@ -82,8 +78,6 @@ export async function getProductOptions(productId: string): Promise<ProductOptio
     } catch {
       // fallback to file storage
     }
-  } else if (isVercelRuntime()) {
-    throw new Error("KV не настроен. Укажите переменные окружения Vercel KV.");
   }
 
   const db = readFileDb();
@@ -107,8 +101,6 @@ export async function saveProductOptions(opts: ProductOptions) {
     } catch {
       // fallback to file storage
     }
-  } else if (isVercelRuntime()) {
-    throw new Error("KV не настроен. Укажите переменные окружения Vercel KV.");
   }
 
   const db = readFileDb();
