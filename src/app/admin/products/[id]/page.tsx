@@ -124,6 +124,7 @@ export default function ProductOptionsPage() {
       // опции
       const or = await fetch(`/api/admin/product-options?productId=${encodeURIComponent(productId)}`, {
         headers: { "X-TG-INIT-DATA": initData },
+        cache: "no-store",
       });
       const oj = await or.json();
       if (!oj.ok) return setMsg(`Ошибка: ${oj.error}`);

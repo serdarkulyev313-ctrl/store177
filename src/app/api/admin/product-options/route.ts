@@ -143,7 +143,7 @@ export async function GET(req: Request) {
   return NextResponse.json({ ok: true, productId, ...data });
 }
 
-export async function PUT(req: Request) {
+async function handleWrite(req: Request) {
   const initData = req.headers.get("x-tg-init-data") || "";
   const a = requireAdmin(initData);
   if (!a.ok) return NextResponse.json({ ok: false, error: a.error }, { status: 403 });
