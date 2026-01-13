@@ -18,7 +18,7 @@ export type VariantPriceMode = "delta" | "fixed" | "final";
 export type ProductVariant = {
   id: string;
   options: Record<string, string | null>; // groupId -> value (или null если группа не обязательна)
-  priceMode: VariantPriceMode; // delta = +/- к базовой цене товара, fixed = конечная цена
+  priceMode: VariantPriceMode; // delta = +/- к базовой цене товара, fixed/final = конечная цена
   priceValue: number;
   stock: number;
   sku?: string;
@@ -174,7 +174,9 @@ export function validateProductOptions(opts: ProductOptionsInput) {
 
     if (typeof v.stock !== "number" || v.stock < 0) errors.push(`Вариант "${v.id}": некорректный остаток.`);
     if (typeof v.priceValue !== "number") errors.push(`Вариант "${v.id}": некорректная цена.`);
-    if (v.priceMode !== "delta" && v.priceMode !== "fixed") errors.push(`Вариант "${v.id}": некорректный priceMode.`);
+    if (v.priceMode !== "delta" && v.priceMode !== "fixed" && v.priceMode !== "final") {
+      errors.push(`Вариант "${v.id}": некорректный priceMode.`);
+    }
   }
 
   // duplicates by options signature
