@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 function parseHashParams() {
@@ -91,7 +92,7 @@ export default function AdminOrdersPage() {
       <h1 style={{ margin: 0 }}>📦 Заказы</h1>
 
       <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <a
+        <Link
           href="/admin"
           style={{
             display: "inline-block",
@@ -102,7 +103,7 @@ export default function AdminOrdersPage() {
           }}
         >
           ← Назад в админку
-        </a>
+        </Link>
 
         <button onClick={load} style={{ padding: "10px 12px", borderRadius: 12 }}>
           🔄 Обновить
