@@ -123,6 +123,7 @@ export default function ProductOptionsPage() {
       // опции
       const or = await fetch(`/api/admin/product-options?productId=${encodeURIComponent(productId)}`, {
         headers: { "X-TG-INIT-DATA": initData },
+        cache: "no-store",
       });
       const oj = await or.json();
       if (!oj.ok) return setMsg(`Ошибка: ${oj.error}`);
@@ -221,14 +222,33 @@ export default function ProductOptionsPage() {
     if (!opts) return;
     setMsg("");
 
-    const r = await fetch("/api/admin/product-options", {
+    const payload = JSON.stringify({ options: opts });
+    const headers = { "Content-Type": "application/json", "X-TG-INIT-DATA": initData };
+
+    let r = await fetch("/api/admin/product-options", {
       method: "PUT",
-      headers: { "Content-Type": "application/json", "X-TG-INIT-DATA": initData },
-      body: JSON.stringify({ options: opts }),
+      headers,
+      body: payload,
     });
-    const j = await r.json();
-    if (!j.ok) return setMsg(`Ошибка сохранения:\n${j.error}`);
+
+    if (r.status === 405) {
+      r = await fetch("/api/admin/product-options", {
+        method: "POST",
+        headers,
+        body: payload,
+      });
+    }
+
+    const j = await r.json().catch(() => null);
+    if (!j?.ok) return setMsg(`Ошибка сохранения:\n${j?.error || "unknown"}`);
     setMsg("Сохранено ✅");
+
+    const refresh = await fetch(`/api/admin/product-options?productId=${encodeURIComponent(productId)}`, {
+      headers: { "X-TG-INIT-DATA": initData },
+      cache: "no-store",
+    });
+    const refreshed = await refresh.json().catch(() => null);
+    if (refreshed?.ok) setOpts(refreshed.options);
   }
 
   if (role === "loading") return <main style={{ padding: 16, fontFamily: "system-ui" }}>Загрузка…</main>;
